@@ -1,0 +1,22 @@
+---
+import '@/styles/global.css';
+interface Props { title?: string; }
+const { title = 'quinipro' } = Astro.props;
+---
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="site">
+        <h1>quini<b>pro</b></h1>
+        <span class="sub">IA vs Yo · pronósticos</span>
+      </header>
+      <slot />
+    </div>
+  </body>
+</html>

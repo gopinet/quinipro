@@ -1,0 +1,107 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getFixtures, getPredictions } from '@/lib/db';
+import { leaderboard } from '@/lib/scoring';
+import { DEFAULT_LEAGUE, DEFAULT_SEASON } from 'astro:env/server';
+import type { Fixture, Prediction } from '@/lib/types';
+
+export const prerender = false;
+
+const league = Number(Astro.url.searchParams.get('league') ?? DEFAULT_LEAGUE);
+const season = Number(Astro.url.searchParams.get('season') ?? DEFAULT_SEASON);
+
+let fixtures: Fixture[] = [];
+let predictions: Prediction[] = [];
+let loadError: string | null = null;
+
+try {
+  [fixtures, predictions] = await Promise.all([getFixtures(league, season), getPredictions()]);
+} catch (e) {
+  loadError = (e as Error).message;
+}
+
+const byId = new Map(fixtures.map((f) => [f.id, f]));
+const predByFixture = new Map<number, Set<string>>();
+for (const p of predictions) {
+  if (!predByFixture.has(p.fixture_id)) predByFixture.set(p.fixture_id, new Set());
+  predByFixture.get(p.fixture_id)!.add(p.source);
+}
+
+const [ai, me] = leaderboard(predictions, byId);
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+---
+
+<Layout>
+  <section class="scoreboard">
+    <div class="side ai">
+      <div class="label">IA</div>
+      <div class="pts">{ai.points}</div>
+      <div class="detail">{ai.exact} exactos · {ai.results} resultados · {ai.graded} jugados</div>
+    </div>
+    <div class="vs">vs</div>
+    <div class="side me">
+      <div class="label">Yo</div>
+      <div class="pts">{me.points}</div>
+      <div class="detail">{me.exact} exactos · {me.results} resultados · {me.graded} jugados</div>
+    </div>
+  </section>
+
+  <div class="toolbar">
+    <button id="refresh">Refrescar partidos</button>
+    <button id="sync">Sincronizar resultados</button>
+  </div>
+
+  {loadError && <p class="msg err">Error cargando datos: {loadError}</p>}
+
+  {fixtures.length === 0 && !loadError && (
+    <p class="empty">No hay partidos en caché. Pulsa "Refrescar partidos" para traerlos.</p>
+  )}
+
+  {fixtures.map((f) => {
+    const has = predByFixture.get(f.id) ?? new Set();
+    const played = f.final_home !== null && f.final_away !== null;
+    return (
+      <a class="fixture" href={`/fixture/${f.id}`}>
+        <div class="teams">
+          {f.home_logo && <img class="logo" src={f.home_logo} alt="" />}
+          <span>{f.home_team}</span>
+          <span style="color:var(--muted)">
+            {played ? `${f.final_home}–${f.final_away}` : 'vs'}
+          </span>
+          <span>{f.away_team}</span>
+          {f.away_logo && <img class="logo" src={f.away_logo} alt="" />}
+        </div>
+        <div class="when">{fmt(f.kickoff)}</div>
+        <div class="badges">
+          {has.has('ai') && <span class="badge ai">IA ✓</span>}
+          {has.has('me') && <span class="badge me">Yo ✓</span>}
+          {played && <span class="badge ft">Final</span>}
+        </div>
+      </a>
+    );
+  })}
+</Layout>
+
+<script define:vars={{ league, season }}>
+  const run = async (btn, url) => {
+    btn.disabled = true;
+    const original = btn.textContent;
+    btn.textContent = '…';
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      location.reload();
+    } catch (e) {
+      btn.textContent = 'Error';
+      console.error(e);
+      setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
+    }
+  };
+  document.getElementById('refresh')?.addEventListener('click', (e) =>
+    run(e.target, `/api/fixtures?league=${league}&season=${season}&refresh=1`));
+  document.getElementById('sync')?.addEventListener('click', (e) =>
+    run(e.target, `/api/sync-results?league=${league}&season=${season}`));
+</script>

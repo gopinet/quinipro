@@ -1,0 +1,108 @@
+:root {
+  --ink: #0f1115;
+  --surface: #171a21;
+  --surface-2: #1e222b;
+  --border: #2a2f3a;
+  --text: #e6e9ef;
+  --muted: #8b93a3;
+  --ai: #a78bfa;     /* IA */
+  --me: #4ade80;     /* Yo */
+  --accent: #4ade80;
+  --bad: #f87171;
+  --radius: 12px;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; text-decoration: none; }
+
+.wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+
+header.site {
+  display: flex; align-items: baseline; justify-content: space-between;
+  margin-bottom: 8px;
+}
+header.site h1 {
+  font-size: 1.4rem; margin: 0; letter-spacing: -0.02em;
+}
+header.site h1 b { color: var(--accent); }
+header.site .sub { color: var(--muted); font-size: 0.85rem; }
+
+/* Scoreboard — the signature element */
+.scoreboard {
+  display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px;
+  align-items: center; margin: 20px 0 28px;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 18px 20px;
+}
+.scoreboard .side { text-align: center; }
+.scoreboard .label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+.scoreboard .pts { font-family: var(--mono); font-size: 2.4rem; font-weight: 700; line-height: 1; margin-top: 4px; }
+.scoreboard .ai .pts { color: var(--ai); }
+.scoreboard .me .pts { color: var(--me); }
+.scoreboard .vs { color: var(--muted); font-family: var(--mono); font-size: 0.9rem; }
+.scoreboard .detail { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+.toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+button, .btn {
+  font: inherit; cursor: pointer; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text);
+  padding: 8px 14px; border-radius: 8px; transition: border-color .15s;
+}
+button:hover, .btn:hover { border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary { background: var(--accent); color: #06231a; border-color: var(--accent); font-weight: 600; }
+
+/* Fixture list */
+.fixture {
+  display: block; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px;
+  transition: border-color .15s;
+}
+.fixture:hover { border-color: var(--accent); }
+.fixture .teams { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.fixture .when { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+.fixture .badges { display: flex; gap: 6px; margin-top: 8px; }
+.badge {
+  font-size: 0.68rem; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--border); color: var(--muted);
+}
+.badge.ai { color: var(--ai); border-color: var(--ai); }
+.badge.me { color: var(--me); border-color: var(--me); }
+.badge.ft { color: var(--text); }
+
+.logo { width: 20px; height: 20px; object-fit: contain; vertical-align: middle; }
+
+/* Detail */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+.card h2 { margin: 0 0 12px; font-size: 1rem; }
+.score-line { font-family: var(--mono); font-size: 1.6rem; font-weight: 700; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.reasoning { color: var(--muted); font-size: 0.9rem; margin-top: 8px; }
+input[type=number] { width: 56px; font: inherit; font-family: var(--mono); text-align: center;
+  background: var(--ink); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+.msg { font-size: 0.85rem; margin-top: 8px; }
+.msg.ok { color: var(--me); }
+.msg.err { color: var(--bad); }
+.empty { color: var(--muted); text-align: center; padding: 40px 0; }
+.back { color: var(--muted); font-size: 0.85rem; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* AI analysis report */
+.report { margin-top: 14px; border-top: 1px solid var(--border); }
+.report section { padding: 12px 0; border-bottom: 1px solid var(--border); }
+.report section:last-child { border-bottom: 0; }
+.report h3 { margin: 0 0 6px; font-size: 0.82rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ai); }
+.report p { margin: 0; color: var(--text); font-size: 0.92rem; }

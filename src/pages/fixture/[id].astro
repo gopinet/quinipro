@@ -1,0 +1,125 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { getFixture, getPredictions } from '@/lib/db';
+import { pointsFor } from '@/lib/scoring';
+import type { Prediction } from '@/lib/types';
+
+export const prerender = false;
+
+const id = Number(Astro.params.id);
+const fx = await getFixture(id);
+if (!fx) return Astro.redirect('/');
+
+const preds = await getPredictions(fx.id);
+const aiPred = preds.find((p) => p.source === 'ai') ?? null;
+const myPred = preds.find((p) => p.source === 'me') ?? null;
+
+const played = fx.final_home !== null && fx.final_away !== null;
+const started = new Date() >= new Date(fx.kickoff);
+
+const ptsLabel = (p: Prediction | null) => {
+  if (!p) return null;
+  const pts = pointsFor(p, fx);
+  return pts === null ? null : `${pts} pt${pts === 1 ? '' : 's'}`;
+};
+
+const fmt = (iso: string) =>
+  new Intl.DateTimeFormat('es', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(iso));
+---
+
+<Layout title={`${fx.home_team} vs ${fx.away_team}`}>
+  <a class="back" href="/">← Volver</a>
+
+  <div class="card">
+    <h2>{fx.home_team} vs {fx.away_team}</h2>
+    <div class="score-line">
+      {played ? `${fx.final_home} – ${fx.final_away}` : (started ? 'En juego / sin resultado' : 'Aún no se juega')}
+    </div>
+    <p class="reasoning">{fmt(fx.kickoff)}</p>
+  </div>
+
+  <div class="card">
+    <h2 style="color:var(--me)">Mi pronóstico</h2>
+    {myPred ? (
+      <>
+        <div class="score-line">{myPred.pred_home} – {myPred.pred_away}</div>
+        {ptsLabel(myPred) && <p class="msg ok">{ptsLabel(myPred)}</p>}
+      </>
+    ) : started ? (
+      <p class="reasoning">Cerrado: el partido ya empezó.</p>
+    ) : (
+      <div style="display:flex;align-items:center;gap:8px">
+        <input type="number" id="my-home" min="0" value="0" />
+        <span>–</span>
+        <input type="number" id="my-away" min="0" value="0" />
+        <button id="save-mine" class="primary">Guardar</button>
+      </div>
+    )}
+    <p id="me-msg" class="msg"></p>
+  </div>
+
+  <div class="card">
+    <h2 style="color:var(--ai)">Análisis de la IA</h2>
+    {aiPred ? (
+      <>
+        <div class="score-line">{aiPred.pred_home} – {aiPred.pred_away}</div>
+        {aiPred.confidence !== null && <p class="reasoning">Confianza: {Math.round(aiPred.confidence * 100)}%</p>}
+        {ptsLabel(aiPred) && <p class="msg ok">{ptsLabel(aiPred)}</p>}
+        {aiPred.report ? (
+          <div class="report">
+            <section><h3>1 · Contexto del partido</h3><p>{aiPred.report.contexto}</p></section>
+            <section><h3>2 · Forma actual</h3><p>{aiPred.report.forma}</p></section>
+            <section><h3>3 · Patrones y estadísticas clave</h3><p>{aiPred.report.patrones}</p></section>
+            <section><h3>4 · Árbitro, tarjetas y córners</h3><p>{aiPred.report.disciplina}</p></section>
+            <section><h3>5 · Predicción del partido</h3><p>{aiPred.report.prediccion}</p></section>
+          </div>
+        ) : aiPred.reasoning ? <p class="reasoning">{aiPred.reasoning}</p> : null}
+      </>
+    ) : started ? (
+      <p class="reasoning">No se generó análisis antes del inicio.</p>
+    ) : (
+      <button id="predict-ai" class="primary">Generar análisis IA</button>
+    )}
+    <p id="ai-msg" class="msg"></p>
+  </div>
+</Layout>
+
+<script define:vars={{ fixtureId: fx.id }}>
+  const msg = (el, text, ok) => { el.textContent = text; el.className = 'msg ' + (ok ? 'ok' : 'err'); };
+
+  document.getElementById('predict-ai')?.addEventListener('click', async (e) => {
+    const btn = e.target; btn.disabled = true; btn.textContent = 'Pensando…';
+    const out = document.getElementById('ai-msg');
+    try {
+      const res = await fetch('/api/predict', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixtureId }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      location.reload();
+    } catch (err) {
+      msg(out, 'Error: ' + err.message, false);
+      btn.disabled = false; btn.textContent = 'Generar análisis IA';
+    }
+  });
+
+  document.getElementById('save-mine')?.addEventListener('click', async (e) => {
+    const btn = e.target; btn.disabled = true;
+    const out = document.getElementById('me-msg');
+    const home = document.getElementById('my-home').value;
+    const away = document.getElementById('my-away').value;
+    try {
+      const res = await fetch('/api/my-prediction', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fixtureId, home, away }),
+      });
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      location.reload();
+    } catch (err) {
+      msg(out, 'Error: ' + err.message, false);
+      btn.disabled = false;
+    }
+  });
+</script>
