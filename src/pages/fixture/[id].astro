@@ -35,36 +35,65 @@ const btts  = fx.stats?.btts  ?? null;
 ---
 
 <Layout title={`${fx.home_team} vs ${fx.away_team}`}>
-  <a class="back" href="/">← Volver</a>
+  <a class="back" href="/">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5"/><path d="m12 5-7 7 7 7"/></svg>
+    Volver
+  </a>
 
   <!-- ── Match header ───────────────────────────────────────── -->
   <div class="fxd-header">
     <div class="fc-top" style="padding:14px 16px 0">
-      <span class="fc-date">{fmtDate(fx.kickoff)} · {fmtTime(fx.kickoff)}</span>
+      <time class="fc-date local-time" datetime={fx.kickoff} data-fmt="long">{fmtDate(fx.kickoff)} · {fmtTime(fx.kickoff)}</time>
       <div class="fc-top-right">
         {played && <span class="fc-badge-sm ft">Final</span>}
         {!played && started && <span class="fc-badge-sm live">En juego</span>}
       </div>
     </div>
-    <div class="fc-match" style="padding:16px 24px 18px">
-      <div class="fc-team">
-        {fx.home_logo
-          ? <img class="fc-flag fxd-flag" src={fx.home_logo} alt="" />
-          : <div class="fc-flag-ph fxd-flag" />}
-        <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.home_team)}</span>
-        <span class="fc-name">{fx.home_team}</span>
-        {played && <span class="fc-score fxd-score">{fx.final_home}</span>}
+    {played ? (
+      <div class="fxd-scoreboard">
+        <div class="fxd-sb-team home">
+          {fx.home_logo
+            ? <img class="fxd-sb-flag" src={fx.home_logo} alt="" />
+            : <div class="fxd-sb-flag fxd-sb-flag-ph" />}
+          <div class="fxd-sb-info">
+            <span class="fc-code">{abbrev(fx.home_team)}</span>
+            <span class="fc-name">{fx.home_team}</span>
+          </div>
+        </div>
+        <div class="fxd-sb-score">
+          <span class="fxd-sb-num">{fx.final_home}</span>
+          <span class="fxd-sb-sep">—</span>
+          <span class="fxd-sb-num">{fx.final_away}</span>
+        </div>
+        <div class="fxd-sb-team away">
+          <div class="fxd-sb-info">
+            <span class="fc-code">{abbrev(fx.away_team)}</span>
+            <span class="fc-name">{fx.away_team}</span>
+          </div>
+          {fx.away_logo
+            ? <img class="fxd-sb-flag" src={fx.away_logo} alt="" />
+            : <div class="fxd-sb-flag fxd-sb-flag-ph" />}
+        </div>
       </div>
-      <span class="fc-vs" style="font-size:1rem;padding-bottom:0">vs</span>
-      <div class="fc-team">
-        {fx.away_logo
-          ? <img class="fc-flag fxd-flag" src={fx.away_logo} alt="" />
-          : <div class="fc-flag-ph fxd-flag" />}
-        <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.away_team)}</span>
-        <span class="fc-name">{fx.away_team}</span>
-        {played && <span class="fc-score fxd-score">{fx.final_away}</span>}
+    ) : (
+      <div class="fc-match" style="padding:16px 24px 18px">
+        <div class="fc-team">
+          {fx.home_logo
+            ? <img class="fc-flag fxd-flag" src={fx.home_logo} alt="" />
+            : <div class="fc-flag-ph fxd-flag" />}
+          <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.home_team)}</span>
+          <span class="fc-name">{fx.home_team}</span>
+        </div>
+        <span class="fc-vs" style="font-size:1rem;padding-bottom:0">vs</span>
+        <div class="fc-team">
+          {fx.away_logo
+            ? <img class="fc-flag fxd-flag" src={fx.away_logo} alt="" />
+            : <div class="fc-flag-ph fxd-flag" />}
+          <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.away_team)}</span>
+          <span class="fc-name">{fx.away_team}</span>
+        </div>
       </div>
-    </div>
+    )}
     {fx.referee && <p class="fxd-referee">Árbitro: {fx.referee}</p>}
   </div>
 

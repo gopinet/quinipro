@@ -18,5 +18,18 @@ const { title = 'quinipro' } = Astro.props;
       </header>
       <slot />
     </div>
+    <script>
+      document.querySelectorAll('time.local-time').forEach(el => {
+        const iso = el.getAttribute('datetime');
+        if (!iso) return;
+        const d = new Date(iso);
+        const long = (el as HTMLElement).dataset.fmt === 'long';
+        const date = new Intl.DateTimeFormat('es', long
+          ? { weekday: 'long', day: 'numeric', month: 'long' }
+          : { day: 'numeric', month: 'short' }).format(d);
+        const time = new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(d);
+        el.textContent = `${date} · ${time}`;
+      });
+    </script>
   </body>
 </html>
