@@ -14,7 +14,7 @@ export const GET: APIRoute = async ({ url }) => {
   try {
     const cached = await getFixtures(league, season);
     const pending = cached
-      .filter((f) => f.final_home === null && new Date(f.kickoff) < new Date())
+      .filter((f) => new Date(f.kickoff) < new Date())
       .map((f) => f.id);
 
     if (pending.length === 0) {

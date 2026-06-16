@@ -33,6 +33,8 @@ export interface RawFixture {
 }
 
 function mapFixture(item: any): RawFixture {
+  const status = item.fixture.status.short;
+  const isFinal = ['FT', 'AET', 'PEN'].includes(status);
   return {
     id: item.fixture.id,
     league_id: item.league.id,
@@ -45,9 +47,9 @@ function mapFixture(item: any): RawFixture {
     away_logo: item.teams.away.logo ?? null,
     referee: item.fixture.referee ?? null,
     kickoff: item.fixture.date,
-    status: item.fixture.status.short,
-    final_home: item.goals.home,
-    final_away: item.goals.away,
+    status,
+    final_home: isFinal ? item.goals.home : null,
+    final_away: isFinal ? item.goals.away : null,
   };
 }
 
