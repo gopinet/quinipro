@@ -49,6 +49,28 @@ create index if not exists predictions_fixture_idx on predictions (fixture_id);
 alter table fixtures    disable row level security;
 alter table predictions disable row level security;
 
+-- Knowledge base: LLM-generated summaries of finished WC matches.
+-- Used to inject tournament context into future predictions.
+create table if not exists match_notes (
+  fixture_id        integer primary key,
+  home_team         text    not null,
+  away_team         text    not null,
+  home_id           integer not null,
+  away_id           integer not null,
+  final_home        integer not null,
+  final_away        integer not null,
+  events            jsonb,            -- raw events from api-sports (goals, cards)
+  summary           text    not null, -- LLM narrative: what happened and why
+  home_performance  text    not null, -- LLM assessment of home team
+  away_performance  text    not null, -- LLM assessment of away team
+  key_takeaways     text    not null, -- what to note in future matches
+  created_at        timestamptz default now()
+);
+
+create index if not exists match_notes_home_idx on match_notes (home_id);
+create index if not exists match_notes_away_idx on match_notes (away_id);
+alter table match_notes disable row level security;
+
 -- Idempotent migrations (safe to re-run on an existing DB) -----------------
 alter table fixtures    add column if not exists referee text;
 alter table predictions add column if not exists report  jsonb;

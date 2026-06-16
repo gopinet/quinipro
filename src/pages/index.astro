@@ -62,12 +62,25 @@ const abbrev = (name: string) =>
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m17 15-5 5-5-5"/><circle cx="12" cy="12" r="9" opacity=".25"/></svg>
       Sincronizar resultados
     </button>
+    <button id="build-all">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><path d="M20 2v4h-4"/></svg>
+      Poblar conocimiento
+    </button>
   </div>
 
   {loadError && <p class="msg err">Error cargando datos: {loadError}</p>}
 
   {fixtures.length === 0 && !loadError && (
     <p class="empty">No hay partidos en caché. Pulsa "Refrescar partidos" para traerlos.</p>
+  )}
+
+  {fixtures.length > 0 && (
+    <div class="filter-bar">
+      <button class="filter-btn active" data-filter="all">Todos</button>
+      <button class="filter-btn" data-filter="upcoming">Próximos</button>
+      <button class="filter-btn" data-filter="live">En juego</button>
+      <button class="filter-btn" data-filter="final">Finalizados</button>
+    </div>
   )}
 
   {fixtures.map((f) => {
@@ -77,8 +90,9 @@ const abbrev = (name: string) =>
     const started = new Date() >= new Date(f.kickoff);
     const pts   = myPred ? pointsFor(myPred, f) : null;
     const badge = pts === 3 ? 'exacto' : pts === 1 ? 'resultado' : null;
+    const filterTag = played ? 'final' : started ? 'live' : 'upcoming';
     return (
-      <a class="fc-card" href={`/fixture/${f.id}`}>
+      <a class="fc-card" data-filter={filterTag} href={`/fixture/${f.id}`}>
         <div class="fc-top">
           <time class="fc-date local-time" datetime={f.kickoff}>{fmtDate(f.kickoff)} · {fmtTime(f.kickoff)}</time>
           <div class="fc-top-right">
@@ -141,8 +155,37 @@ const abbrev = (name: string) =>
       setTimeout(() => { btn.textContent = original; btn.disabled = false; }, 1500);
     }
   };
+  // Filter logic
+  const cards = Array.from(document.querySelectorAll('.fc-card[data-filter]'));
+  document.querySelectorAll('.filter-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const f = btn.dataset.filter;
+      cards.forEach(c => {
+        c.hidden = f !== 'all' && c.dataset.filter !== f;
+      });
+    });
+  });
+
   document.getElementById('refresh')?.addEventListener('click', (e) =>
     run(e.target, `/api/fixtures?league=${league}&season=${season}&refresh=1`));
   document.getElementById('sync')?.addEventListener('click', (e) =>
     run(e.target, `/api/sync-results?league=${league}&season=${season}`));
+  document.getElementById('build-all')?.addEventListener('click', async (e) => {
+    const btn = e.target; btn.disabled = true;
+    const orig = btn.textContent.trim();
+    btn.textContent = 'Analizando partidos…';
+    try {
+      const res  = await fetch(`/api/build-knowledge-batch?league=${league}&season=${season}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error);
+      btn.textContent = `✓ ${data.created} nuevos, ${data.skipped} ya existían${data.errors ? `, ${data.errors} errores` : ''}`;
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 4000);
+    } catch (err) {
+      btn.textContent = 'Error';
+      console.error(err);
+      setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2000);
+    }
+  });
 </script>

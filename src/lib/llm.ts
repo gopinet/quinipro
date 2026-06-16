@@ -1,6 +1,6 @@
 import OpenAI from 'openai';
 import { OPENAI_API_KEY, OPENAI_MODEL } from 'astro:env/server';
-import type { AiPrediction, Outcome, StatsSnapshot } from './types';
+import type { AiPrediction, MatchNote, Outcome, StatsSnapshot } from './types';
 
 let _client: OpenAI | null = null;
 function client(): OpenAI {
@@ -77,8 +77,100 @@ function describe(s: StatsSnapshot): string {
   ].join('\n');
 }
 
-export async function predictMatch(homeTeam: string, awayTeam: string, stats: StatsSnapshot): Promise<AiPrediction> {
-  const user = `Equipos: ${homeTeam} (local) vs ${awayTeam} (visitante)\n\nDATOS DISPONIBLES:\n${describe(stats)}\n\nGenera el informe de Análisis de la IA.`;
+const SUMMARY_SCHEMA = {
+  name: 'match_summary',
+  strict: true,
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      summary:          { type: 'string', description: 'Narrativa del partido: qué pasó y por qué (2-3 frases)' },
+      home_performance: { type: 'string', description: 'Valoración del equipo local en este partido' },
+      away_performance: { type: 'string', description: 'Valoración del equipo visitante en este partido' },
+      key_takeaways:    { type: 'string', description: 'Puntos clave a recordar para futuros análisis de estos equipos' },
+    },
+    required: ['summary', 'home_performance', 'away_performance', 'key_takeaways'],
+  },
+} as const;
+
+/** Generate a structured knowledge note from a finished WC match (goals + cards). */
+export async function summarizeMatch(
+  homeTeam: string, awayTeam: string,
+  finalHome: number, finalAway: number,
+  events: any[],
+): Promise<Pick<MatchNote, 'summary' | 'home_performance' | 'away_performance' | 'key_takeaways'>> {
+  const goals = events
+    .filter((e) => e.type === 'Goal')
+    .map((e) => `${e.time.elapsed}' ${e.team.name}: ${e.player.name}${e.detail === 'Own Goal' ? ' (gol en propia)' : ''}`)
+    .join('\n') || 'no disponible';
+  const cards = events
+    .filter((e) => e.type === 'Card')
+    .map((e) => `${e.time.elapsed}' ${e.team.name}: ${e.player.name} (${e.detail})`)
+    .join('\n') || 'ninguna';
+
+  const user = `PARTIDO FINALIZADO — Mundial 2026:
+${homeTeam} ${finalHome}–${finalAway} ${awayTeam}
+
+GOLES:
+${goals}
+
+TARJETAS:
+${cards}
+
+Genera el resumen estructurado para memoria del analista.`;
+
+  const completion = await client().chat.completions.create({
+    model: OPENAI_MODEL,
+    temperature: 0.3,
+    response_format: { type: 'json_schema', json_schema: SUMMARY_SCHEMA },
+    messages: [
+      { role: 'system', content: 'Eres un analista experto en fútbol del Mundial 2026. Genera resúmenes objetivos y concisos de partidos para alimentar el análisis predictivo de futuros encuentros.' },
+      { role: 'user', content: user },
+    ],
+  });
+
+  const p = JSON.parse(completion.choices[0]?.message?.content ?? '{}');
+  return {
+    summary:          String(p.summary ?? ''),
+    home_performance: String(p.home_performance ?? ''),
+    away_performance: String(p.away_performance ?? ''),
+    key_takeaways:    String(p.key_takeaways ?? ''),
+  };
+}
+
+/** Format match notes as additional context for the prediction prompt. */
+function describeNotes(notes: MatchNote[], homeTeam: string, awayTeam: string): string {
+  if (notes.length === 0) return '';
+  const fmt = (n: MatchNote, team: string) => {
+    const opp  = n.home_team === team ? n.away_team : n.home_team;
+    const perf = n.home_team === team ? n.home_performance : n.away_performance;
+    return `  • vs ${opp} (${n.final_home}–${n.final_away}): ${perf}`;
+  };
+  const homeNotes = notes.filter((n) => n.home_team === homeTeam || n.away_team === homeTeam);
+  const awayNotes = notes.filter((n) => n.home_team === awayTeam || n.away_team === awayTeam);
+  const lines: string[] = ['\n\n## MEMORIA DEL MUNDIAL 2026 (partidos previos relevantes):'];
+  if (homeNotes.length > 0) {
+    lines.push(`\n${homeTeam} en el torneo:`);
+    homeNotes.forEach((n) => lines.push(fmt(n, homeTeam)));
+    const last = homeNotes[homeNotes.length - 1];
+    if (last) lines.push(`  → Conclusión: ${last.key_takeaways}`);
+  }
+  if (awayNotes.length > 0) {
+    lines.push(`\n${awayTeam} en el torneo:`);
+    awayNotes.forEach((n) => lines.push(fmt(n, awayTeam)));
+    const last = awayNotes[awayNotes.length - 1];
+    if (last) lines.push(`  → Conclusión: ${last.key_takeaways}`);
+  }
+  return lines.join('\n');
+}
+
+export async function predictMatch(
+  homeTeam: string, awayTeam: string,
+  stats: StatsSnapshot,
+  notes: MatchNote[] = [],
+): Promise<AiPrediction> {
+  const worldcupCtx = describeNotes(notes, homeTeam, awayTeam);
+  const user = `Equipos: ${homeTeam} (local) vs ${awayTeam} (visitante)\n\nDATOS DISPONIBLES:\n${describe(stats)}${worldcupCtx}\n\nGenera el informe de Análisis de la IA.`;
 
   const completion = await client().chat.completions.create({
     model: OPENAI_MODEL,

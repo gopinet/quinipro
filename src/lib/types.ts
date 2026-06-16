@@ -89,6 +89,23 @@ export interface AnalysisReport {
   prediccion: string;   // 5. síntesis, ritmo, portería a cero, quién abre
 }
 
+/** One match note = LLM-generated knowledge from a finished WC match. */
+export interface MatchNote {
+  fixture_id:       number;
+  home_team:        string;
+  away_team:        string;
+  home_id:          number;
+  away_id:          number;
+  final_home:       number;
+  final_away:       number;
+  events:           any[] | null;
+  summary:          string;
+  home_performance: string;
+  away_performance: string;
+  key_takeaways:    string;
+  created_at:       string;
+}
+
 export interface AiPrediction {
   pred_home: number;
   pred_away: number;

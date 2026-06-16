@@ -58,6 +58,12 @@ export async function getUpcomingFixtures(league: number, season: number, next =
   return rows.map(mapFixture);
 }
 
+/** Fetch ALL fixtures for a league+season (past + future). Ideal for tournaments. */
+export async function getAllFixtures(league: number, season: number): Promise<RawFixture[]> {
+  const rows = await api<any[]>('/fixtures', { league, season });
+  return rows.map(mapFixture);
+}
+
 export async function getFixturesByIds(ids: number[]): Promise<RawFixture[]> {
   if (ids.length === 0) return [];
   const rows = await api<any[]>('/fixtures', { ids: ids.join('-') });
@@ -211,4 +217,9 @@ export async function gatherStats(fx: RawFixture): Promise<StatsSnapshot> {
     btts: odds.btts,
     gathered_at: new Date().toISOString(),
   };
+}
+
+/** Fetch match events (goals, cards, substitutions) for a finished fixture. Pro plan endpoint. */
+export async function getFixtureEvents(fixtureId: number): Promise<any[]> {
+  return api<any[]>('/fixtures/events', { fixture: fixtureId }).catch(() => []);
 }

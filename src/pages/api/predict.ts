@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { gatherStats } from '@/lib/apisports';
-import { getFixture, getPredictions, insertPrediction, setStats } from '@/lib/db';
+import { getFixture, getMatchNotes, getPredictions, insertPrediction, setStats } from '@/lib/db';
 import { predictMatch } from '@/lib/llm';
 
 export const prerender = false;
@@ -21,19 +21,24 @@ export const POST: APIRoute = async ({ request }) => {
     const existing = (await getPredictions(fx.id)).find((p) => p.source === 'ai');
     if (existing) return Response.json({ ok: true, prediction: existing, cached: true });
 
-    // Gather stats once, cache them, then ask the LLM.
-    const stats = fx.stats ?? (await gatherStats({
-      id: fx.id, league_id: fx.league_id, season: fx.season,
-      home_team: fx.home_team, away_team: fx.away_team,
-      home_id: fx.home_id, away_id: fx.away_id,
-      home_logo: fx.home_logo, away_logo: fx.away_logo,
-      referee: fx.referee,
-      kickoff: fx.kickoff, status: fx.status,
-      final_home: fx.final_home, final_away: fx.final_away,
-    }));
+    // Gather stats + world cup knowledge in parallel, then ask the LLM.
+    const [stats, notes] = await Promise.all([
+      fx.stats
+        ? Promise.resolve(fx.stats)
+        : gatherStats({
+            id: fx.id, league_id: fx.league_id, season: fx.season,
+            home_team: fx.home_team, away_team: fx.away_team,
+            home_id: fx.home_id, away_id: fx.away_id,
+            home_logo: fx.home_logo, away_logo: fx.away_logo,
+            referee: fx.referee,
+            kickoff: fx.kickoff, status: fx.status,
+            final_home: fx.final_home, final_away: fx.final_away,
+          }),
+      getMatchNotes(fx.home_id, fx.away_id).catch(() => []),
+    ]);
     if (!fx.stats) await setStats(fx.id, stats);
 
-    const ai = await predictMatch(fx.home_team, fx.away_team, stats);
+    const ai = await predictMatch(fx.home_team, fx.away_team, stats, notes);
     const res = await insertPrediction({
       fixture_id: fx.id,
       source: 'ai',

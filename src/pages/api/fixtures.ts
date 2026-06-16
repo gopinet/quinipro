@@ -1,11 +1,11 @@
 import type { APIRoute } from 'astro';
-import { getUpcomingFixtures } from '@/lib/apisports';
+import { getAllFixtures } from '@/lib/apisports';
 import { getFixtures, upsertFixtures } from '@/lib/db';
 import { DEFAULT_LEAGUE, DEFAULT_SEASON } from 'astro:env/server';
 
 export const prerender = false;
 
-// GET /api/fixtures?league=39&season=2024&refresh=1
+// GET /api/fixtures?league=1&season=2026&refresh=1
 export const GET: APIRoute = async ({ url }) => {
   const league = Number(url.searchParams.get('league') ?? DEFAULT_LEAGUE);
   const season = Number(url.searchParams.get('season') ?? DEFAULT_SEASON);
@@ -13,7 +13,7 @@ export const GET: APIRoute = async ({ url }) => {
 
   try {
     if (refresh) {
-      const rows = await getUpcomingFixtures(league, season, 20);
+      const rows = await getAllFixtures(league, season);
       await upsertFixtures(rows);
     }
     const fixtures = await getFixtures(league, season);

@@ -112,6 +112,28 @@ input[type=number] { width: 56px; font: inherit; font-family: var(--mono); text-
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
+/* ── Filter bar ───────────────────────────────────────────── */
+.filter-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.filter-btn {
+  font-size: 0.78rem;
+  padding: 5px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+  font-weight: 500;
+}
+.filter-btn:hover { border-color: var(--text); color: var(--text); }
+.filter-btn.active { background: var(--surface-2); border-color: var(--text); color: var(--text); }
+.fc-card[hidden] { display: none; }
+
 /* ── Fixture cards (new design) ───────────────────────────── */
 .fc-card {
   display: block;

@@ -1,5 +1,5 @@
 import { db } from './supabase';
-import type { Fixture, Prediction } from './types';
+import type { Fixture, MatchNote, Prediction } from './types';
 import type { RawFixture } from './apisports';
 
 export async function upsertFixtures(rows: RawFixture[]): Promise<void> {
@@ -64,4 +64,31 @@ export async function insertPrediction(p: Omit<Prediction, 'id' | 'created_at'>)
 export async function setStats(fixtureId: number, stats: Fixture['stats']): Promise<void> {
   const { error } = await db().from('fixtures').update({ stats }).eq('id', fixtureId);
   if (error) throw new Error(`setStats: ${error.message}`);
+}
+
+/** Fetch all match notes that involve either of the two teams (by team id). */
+export async function getMatchNotes(homeId: number, awayId: number): Promise<MatchNote[]> {
+  const { data, error } = await db()
+    .from('match_notes')
+    .select('*')
+    .or(`home_id.eq.${homeId},away_id.eq.${homeId},home_id.eq.${awayId},away_id.eq.${awayId}`)
+    .order('created_at', { ascending: true });
+  if (error) throw new Error(`getMatchNotes: ${error.message}`);
+  return (data ?? []) as MatchNote[];
+}
+
+/** Get a single match note by fixture id (null if not yet generated). */
+export async function getMatchNote(fixtureId: number): Promise<MatchNote | null> {
+  const { data, error } = await db()
+    .from('match_notes')
+    .select('*')
+    .eq('fixture_id', fixtureId)
+    .maybeSingle();
+  if (error) throw new Error(`getMatchNote: ${error.message}`);
+  return (data as MatchNote) ?? null;
+}
+
+export async function upsertMatchNote(note: Omit<MatchNote, 'created_at'>): Promise<void> {
+  const { error } = await db().from('match_notes').upsert(note, { onConflict: 'fixture_id' });
+  if (error) throw new Error(`upsertMatchNote: ${error.message}`);
 }
