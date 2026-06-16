@@ -14,73 +14,163 @@ const preds = await getPredictions(fx.id);
 const aiPred = preds.find((p) => p.source === 'ai') ?? null;
 const myPred = preds.find((p) => p.source === 'me') ?? null;
 
-const played = fx.final_home !== null && fx.final_away !== null;
+const played  = fx.final_home !== null && fx.final_away !== null;
 const started = new Date() >= new Date(fx.kickoff);
 
-const ptsLabel = (p: Prediction | null) => {
-  if (!p) return null;
-  const pts = pointsFor(p, fx);
-  return pts === null ? null : `${pts} pt${pts === 1 ? '' : 's'}`;
-};
+const myPts = myPred ? pointsFor(myPred, fx) : null;
+const aiPts = aiPred ? pointsFor(aiPred, fx) : null;
+const myBadge = myPts === 3 ? 'exacto' : myPts === 1 ? 'resultado' : null;
+const aiBadge = aiPts === 3 ? 'exacto' : aiPts === 1 ? 'resultado' : null;
 
-const fmt = (iso: string) =>
-  new Intl.DateTimeFormat('es', { dateStyle: 'full', timeStyle: 'short' }).format(new Date(iso));
+const abbrev = (name: string) =>
+  name.split(/\s+/).filter(w => !['del','de','la','el','y','e','of','the'].includes(w.toLowerCase()))[0]?.slice(0, 3).toUpperCase() ?? '?';
+
+const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat('es', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso));
+const fmtTime = (iso: string) =>
+  new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+
+const odds = fx.stats?.odds ?? null;
+const btts  = fx.stats?.btts  ?? null;
 ---
 
 <Layout title={`${fx.home_team} vs ${fx.away_team}`}>
   <a class="back" href="/">← Volver</a>
 
-  <div class="card">
-    <h2>{fx.home_team} vs {fx.away_team}</h2>
-    <div class="score-line">
-      {played ? `${fx.final_home} – ${fx.final_away}` : (started ? 'En juego / sin resultado' : 'Aún no se juega')}
+  <!-- ── Match header ───────────────────────────────────────── -->
+  <div class="fxd-header">
+    <div class="fc-top" style="padding:14px 16px 0">
+      <span class="fc-date">{fmtDate(fx.kickoff)} · {fmtTime(fx.kickoff)}</span>
+      <div class="fc-top-right">
+        {played && <span class="fc-badge-sm ft">Final</span>}
+        {!played && started && <span class="fc-badge-sm live">En juego</span>}
+      </div>
     </div>
-    <p class="reasoning">{fmt(fx.kickoff)}</p>
+    <div class="fc-match" style="padding:16px 24px 18px">
+      <div class="fc-team">
+        {fx.home_logo
+          ? <img class="fc-flag fxd-flag" src={fx.home_logo} alt="" />
+          : <div class="fc-flag-ph fxd-flag" />}
+        <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.home_team)}</span>
+        <span class="fc-name">{fx.home_team}</span>
+        {played && <span class="fc-score fxd-score">{fx.final_home}</span>}
+      </div>
+      <span class="fc-vs" style="font-size:1rem;padding-bottom:0">vs</span>
+      <div class="fc-team">
+        {fx.away_logo
+          ? <img class="fc-flag fxd-flag" src={fx.away_logo} alt="" />
+          : <div class="fc-flag-ph fxd-flag" />}
+        <span class="fc-code" style="font-size:1.2rem">{abbrev(fx.away_team)}</span>
+        <span class="fc-name">{fx.away_team}</span>
+        {played && <span class="fc-score fxd-score">{fx.final_away}</span>}
+      </div>
+    </div>
+    {fx.referee && <p class="fxd-referee">Árbitro: {fx.referee}</p>}
   </div>
 
-  <div class="card">
-    <h2 style="color:var(--me)">Mi pronóstico</h2>
+  <!-- ── Mi predicción ─────────────────────────────────────── -->
+  <div class="fxd-section">
+    <h2 class="fxd-section-title" style="color:var(--me)">Mi predicción</h2>
     {myPred ? (
-      <>
-        <div class="score-line">{myPred.pred_home} – {myPred.pred_away}</div>
-        {ptsLabel(myPred) && <p class="msg ok">{ptsLabel(myPred)}</p>}
-      </>
+      <div class="fxd-pred-row">
+        <span class="fxd-pred-num">{myPred.pred_home} – {myPred.pred_away}</span>
+        {myBadge === 'exacto'    && <span class="fc-badge exact">✓ Exacto</span>}
+        {myBadge === 'resultado' && <span class="fc-badge result">✓ Resultado</span>}
+        {myPts === 0             && played && <span class="fc-badge wrong">✗ Fallo</span>}
+      </div>
     ) : started ? (
-      <p class="reasoning">Cerrado: el partido ya empezó.</p>
+      <p class="fxd-muted-body">Cerrado: el partido ya empezó.</p>
     ) : (
-      <div style="display:flex;align-items:center;gap:8px">
+      <div class="fxd-input-row">
         <input type="number" id="my-home" min="0" value="0" />
-        <span>–</span>
+        <span class="fxd-input-sep">–</span>
         <input type="number" id="my-away" min="0" value="0" />
         <button id="save-mine" class="primary">Guardar</button>
       </div>
     )}
-    <p id="me-msg" class="msg"></p>
+    <p id="me-msg" class="msg" style="padding:0 16px 12px"></p>
   </div>
 
-  <div class="card">
-    <h2 style="color:var(--ai)">Análisis de la IA</h2>
+  <!-- ── Análisis de la IA ──────────────────────────────────── -->
+  <div class="fxd-section">
+    <h2 class="fxd-section-title" style="color:var(--ai)">Análisis de la IA</h2>
+
     {aiPred ? (
       <>
-        <div class="score-line">{aiPred.pred_home} – {aiPred.pred_away}</div>
-        {aiPred.confidence !== null && <p class="reasoning">Confianza: {Math.round(aiPred.confidence * 100)}%</p>}
-        {ptsLabel(aiPred) && <p class="msg ok">{ptsLabel(aiPred)}</p>}
-        {aiPred.report ? (
-          <div class="report">
-            <section><h3>1 · Contexto del partido</h3><p>{aiPred.report.contexto}</p></section>
-            <section><h3>2 · Forma actual</h3><p>{aiPred.report.forma}</p></section>
-            <section><h3>3 · Patrones y estadísticas clave</h3><p>{aiPred.report.patrones}</p></section>
-            <section><h3>4 · Árbitro, tarjetas y córners</h3><p>{aiPred.report.disciplina}</p></section>
-            <section><h3>5 · Predicción del partido</h3><p>{aiPred.report.prediccion}</p></section>
+        <div class="fxd-pred-row" style="border-bottom:1px solid var(--border)">
+          <span class="fxd-pred-num">{aiPred.pred_home} – {aiPred.pred_away}</span>
+          <span class="fxd-conf">
+            {aiPred.confidence !== null ? `Confianza ${Math.round(aiPred.confidence * 100)}%` : ''}
+          </span>
+          {aiBadge === 'exacto'    && <span class="fc-badge exact">✓ Exacto</span>}
+          {aiBadge === 'resultado' && <span class="fc-badge result">✓ Resultado</span>}
+          {aiPts === 0             && played && <span class="fc-badge wrong">✗ Fallo</span>}
+        </div>
+
+        {odds && (
+          <div class="fxd-probs">
+            <p class="fxd-probs-label">Probabilidad de victoria al finalizar el encuentro</p>
+            <div class="fxd-probs-bar">
+              {fx.home_logo && <img class="fxd-flag-sm" src={fx.home_logo} alt="" />}
+              <div class="fxd-pct">
+                <strong>{odds.implied.home}%</strong>
+                <span class="fxd-pct-label">Local</span>
+              </div>
+              <div class="fxd-pct-div" />
+              <div class="fxd-pct">
+                <strong>{odds.implied.draw}%</strong>
+                <span class="fxd-pct-label">Empate</span>
+              </div>
+              <div class="fxd-pct-div" />
+              <div class="fxd-pct">
+                <strong>{odds.implied.away}%</strong>
+                <span class="fxd-pct-label">Visitante</span>
+              </div>
+              {fx.away_logo && <img class="fxd-flag-sm" src={fx.away_logo} alt="" />}
+            </div>
+            {btts && (
+              <p class="fxd-btts">Ambos equipos marcarán: <strong>{btts.implied_yes}%</strong> de probabilidad</p>
+            )}
           </div>
-        ) : aiPred.reasoning ? <p class="reasoning">{aiPred.reasoning}</p> : null}
+        )}
+
+        {aiPred.reasoning && (
+          <p class="fxd-reasoning">{aiPred.reasoning}</p>
+        )}
+
+        {aiPred.report && (
+          <div class="fxd-report">
+            <div class="fxd-report-sec">
+              <h3>Contexto del partido</h3>
+              <p>{aiPred.report.contexto}</p>
+            </div>
+            <div class="fxd-report-sec">
+              <h3>Forma actual</h3>
+              <p>{aiPred.report.forma}</p>
+            </div>
+            <div class="fxd-report-sec">
+              <h3>Patrones y estadísticas clave</h3>
+              <p>{aiPred.report.patrones}</p>
+            </div>
+            <div class="fxd-report-sec">
+              <h3>Árbitro, tarjetas y córners</h3>
+              <p>{aiPred.report.disciplina}</p>
+            </div>
+            <div class="fxd-report-sec">
+              <h3>Predicción del partido</h3>
+              <p>{aiPred.report.prediccion}</p>
+            </div>
+          </div>
+        )}
       </>
     ) : started ? (
-      <p class="reasoning">No se generó análisis antes del inicio.</p>
+      <p class="fxd-muted-body">No se generó análisis antes del inicio.</p>
     ) : (
-      <button id="predict-ai" class="primary">Generar análisis IA</button>
+      <div style="padding:16px">
+        <button id="predict-ai" class="primary">Generar análisis IA</button>
+      </div>
     )}
-    <p id="ai-msg" class="msg"></p>
+    <p id="ai-msg" class="msg" style="padding:0 16px 12px"></p>
   </div>
 </Layout>
 

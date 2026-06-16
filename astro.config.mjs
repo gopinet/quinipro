@@ -1,11 +1,11 @@
 import { defineConfig, envField } from 'astro/config';
-import node from '@astrojs/node';
+import cloudflare from '@astrojs/cloudflare';
 
 // Server output keeps every secret off the client. astro:env validates env
 // at runtime (no rebuild needed to change secrets) and gives typed access.
 export default defineConfig({
   output: 'server',
-  adapter: node({ mode: 'standalone' }),
+  adapter: cloudflare(),
   env: {
     schema: {
       FOOTBALL_API_KEY: envField.string({ context: 'server', access: 'secret' }),

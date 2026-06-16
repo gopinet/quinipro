@@ -74,7 +74,3 @@ Cada pronóstico de la IA genera un informe técnico con salida estructurada:
 ## Producción
 `npm run build && npm start` (runtime node). Serverless → cambia el adapter
 (`@astrojs/vercel` / `@astrojs/netlify`).
-
-## Límite honesto
-Aun con cuotas + stats, la IA básicamente **calibra hacia el mercado**: rara vez le
-gana a la casa. Es un buen rival para el juego IA-vs-tú, no una máquina de apostar.

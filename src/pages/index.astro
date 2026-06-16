@@ -1,7 +1,7 @@
 ---
 import Layout from '@/layouts/Layout.astro';
 import { getFixtures, getPredictions } from '@/lib/db';
-import { leaderboard } from '@/lib/scoring';
+import { leaderboard, pointsFor } from '@/lib/scoring';
 import { DEFAULT_LEAGUE, DEFAULT_SEASON } from 'astro:env/server';
 import type { Fixture, Prediction } from '@/lib/types';
 
@@ -21,16 +21,21 @@ try {
 }
 
 const byId = new Map(fixtures.map((f) => [f.id, f]));
-const predByFixture = new Map<number, Set<string>>();
+const myPredByFixture = new Map<number, Prediction>();
+const aiPredByFixture = new Map<number, Prediction>();
 for (const p of predictions) {
-  if (!predByFixture.has(p.fixture_id)) predByFixture.set(p.fixture_id, new Set());
-  predByFixture.get(p.fixture_id)!.add(p.source);
+  if (p.source === 'me') myPredByFixture.set(p.fixture_id, p);
+  if (p.source === 'ai') aiPredByFixture.set(p.fixture_id, p);
 }
 
 const [ai, me] = leaderboard(predictions, byId);
 
-const fmt = (iso: string) =>
-  new Intl.DateTimeFormat('es', { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const fmtDate = (iso: string) =>
+  new Intl.DateTimeFormat('es', { day: 'numeric', month: 'short' }).format(new Date(iso));
+const fmtTime = (iso: string) =>
+  new Intl.DateTimeFormat('es', { hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+const abbrev = (name: string) =>
+  name.split(/\s+/).filter(w => !['del','de','la','el','y','e','of','the'].includes(w.toLowerCase()))[0]?.slice(0, 3).toUpperCase() ?? '?';
 ---
 
 <Layout>
@@ -60,24 +65,54 @@ const fmt = (iso: string) =>
   )}
 
   {fixtures.map((f) => {
-    const has = predByFixture.get(f.id) ?? new Set();
-    const played = f.final_home !== null && f.final_away !== null;
+    const myPred = myPredByFixture.get(f.id) ?? null;
+    const hasAi  = aiPredByFixture.has(f.id);
+    const played  = f.final_home !== null && f.final_away !== null;
+    const started = new Date() >= new Date(f.kickoff);
+    const pts   = myPred ? pointsFor(myPred, f) : null;
+    const badge = pts === 3 ? 'exacto' : pts === 1 ? 'resultado' : null;
     return (
-      <a class="fixture" href={`/fixture/${f.id}`}>
-        <div class="teams">
-          {f.home_logo && <img class="logo" src={f.home_logo} alt="" />}
-          <span>{f.home_team}</span>
-          <span style="color:var(--muted)">
-            {played ? `${f.final_home}–${f.final_away}` : 'vs'}
-          </span>
-          <span>{f.away_team}</span>
-          {f.away_logo && <img class="logo" src={f.away_logo} alt="" />}
+      <a class="fc-card" href={`/fixture/${f.id}`}>
+        <div class="fc-top">
+          <span class="fc-date">{fmtDate(f.kickoff)} · {fmtTime(f.kickoff)}</span>
+          <div class="fc-top-right">
+            {hasAi && <span class="fc-badge-sm ai">IA ✓</span>}
+            {played && <span class="fc-badge-sm ft">Final</span>}
+            {!played && started && <span class="fc-badge-sm live">En juego</span>}
+          </div>
         </div>
-        <div class="when">{fmt(f.kickoff)}</div>
-        <div class="badges">
-          {has.has('ai') && <span class="badge ai">IA ✓</span>}
-          {has.has('me') && <span class="badge me">Yo ✓</span>}
-          {played && <span class="badge ft">Final</span>}
+        <div class="fc-match">
+          <div class="fc-team">
+            {f.home_logo
+              ? <img class="fc-flag" src={f.home_logo} alt="" />
+              : <div class="fc-flag-ph" />}
+            <span class="fc-code">{abbrev(f.home_team)}</span>
+            <span class="fc-name">{f.home_team}</span>
+            {played && <span class="fc-score">{f.final_home}</span>}
+          </div>
+          <span class="fc-vs">vs</span>
+          <div class="fc-team">
+            {f.away_logo
+              ? <img class="fc-flag" src={f.away_logo} alt="" />
+              : <div class="fc-flag-ph" />}
+            <span class="fc-code">{abbrev(f.away_team)}</span>
+            <span class="fc-name">{f.away_team}</span>
+            {played && <span class="fc-score">{f.final_away}</span>}
+          </div>
+        </div>
+        <div class="fc-pred">
+          <span class="fc-pred-label">Tu Predicción</span>
+          {myPred ? (
+            <div class="fc-pred-right">
+              <span class="fc-pred-score">{myPred.pred_home} – {myPred.pred_away}</span>
+              {badge === 'exacto'    && <span class="fc-badge exact">✓ Exacto</span>}
+              {badge === 'resultado' && <span class="fc-badge result">✓ Resultado</span>}
+            </div>
+          ) : started ? (
+            <span class="fc-pred-empty">—</span>
+          ) : (
+            <span class="fc-pred-empty">Sin predicción</span>
+          )}
         </div>
       </a>
     );

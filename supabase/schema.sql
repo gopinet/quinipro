@@ -44,6 +44,11 @@ create table if not exists predictions (
 
 create index if not exists predictions_fixture_idx on predictions (fixture_id);
 
+-- RLS must be OFF: this is a personal app; all writes go through the server
+-- with service_role. Supabase enables RLS by default on new projects.
+alter table fixtures    disable row level security;
+alter table predictions disable row level security;
+
 -- Idempotent migrations (safe to re-run on an existing DB) -----------------
 alter table fixtures    add column if not exists referee text;
 alter table predictions add column if not exists report  jsonb;
